@@ -50,14 +50,14 @@ class GMR(BaseEstimator, RegressorMixin):
 
         Returns
         -------
-        self
+        None
         """
         D = np.hstack([X, Y])
         self.gmm.fit(D)
         self.dim_x = X.shape[1]
         self.dim_y = Y.shape[1]
         self.covariances = np.linalg.inv(self.gmm.precisions_)
-        return self
+        return
     
     def predict(self, X):
         """
