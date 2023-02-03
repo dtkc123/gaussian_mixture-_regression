@@ -147,8 +147,8 @@ class GMR(BaseEstimator, RegressorMixin):
         weights, covs_xx, covs_xy, covs_yy, means_x, means_y = self._prepare()
         weights_samples = self._calc_weights_each_samples(Y, means_y, covs_yy)
         
-        means_x_given_ys = np.zeros([self.n_components, means_x.shape[1]])
-        covs_xx_given_ys = np.zeros([self.n_components, means_x.shape[1],means_x.shape[1]])
+        means_x_given_ys = np.zeros([self.n_components, Y.shape[0], means_x.shape[1]])
+        covs_xx_given_ys = np.zeros([self.n_components, Y.shape[0], means_x.shape[1],means_x.shape[1]])
         for i in range(self.n_components):
             means_x_i = means_x[i] + (Y - means_y[i].reshape(1,-1)\
                                   ).dot(np.linalg.inv(covs_yy[i])\
@@ -156,8 +156,6 @@ class GMR(BaseEstimator, RegressorMixin):
             
         
             covs_x_i = covs_xx[i] - covs_xy[i].dot(np.linalg.inv(covs_yy[i]).dot(covs_xy[i].T))
-            print(means_x_i.shape)
-            print(covs_x_i.shape)
             means_x_given_ys[i] = means_x_i
             covs_xx_given_ys[i] = covs_x_i
         
@@ -165,7 +163,6 @@ class GMR(BaseEstimator, RegressorMixin):
         for j in range(Y.shape[0]):
             wj = weights_samples[j,:]
             wj /= np.sum(wj)
-            
             count = 0
             for i in range(self.n_components):
                 if i != self.n_components-1:
@@ -173,9 +170,11 @@ class GMR(BaseEstimator, RegressorMixin):
                     
                 else:
                     ns_ij = n_samples - count
-                samples = multivariate_normal.rvs(means_x_given_ys[i,:], covs_xx_given_ys[i,:,:], size=ns_ij)
-                X_samples[j,count:ns_ij,:] = samples
-                count += ns_ij
+                if ns_ij != 0:
+                    samples = multivariate_normal.rvs(means_x_given_ys[i,j,:], covs_xx_given_ys[i,j,:,:], size=ns_ij)
+                    
+                    X_samples[j,count:(count+ns_ij),:] = samples
+                    count += ns_ij
         return X_samples
         
 if __name__=="__main__":
@@ -185,8 +184,14 @@ if __name__=="__main__":
     Y = np.dot(X, A) + np.random.randn(100,3)
     gmr = GMR(n_components=2)
     gmr.fit(X[:70],Y[:70])
+    
+    # forward analysis
     Y_pred = gmr.predict(X)
-    X_samples = gmr.inverse_sample(Y[0,:],n_samples=10)
+    
+    # inverse sampling
+    X_samples = gmr.inverse_sample(Y[:3,:],n_samples=10000)
+    
+    # inverse analysis
     X_pred = gmr.inverse_predict(Y)
     
     
